@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//private/tmp/**)",
+      "Bash(npx create-next-app@latest content-app --typescript --tailwind --app --no-eslint --no-git --import-alias '@/*' --skip-install)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/runs/pull -H 'Content-Type: application/json' -d '{\"hashtags\":[\"test\"], \"perTag\":3}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/runs/pull -H 'Content-Type: application/json' -d '{\"hashtags\":[\"fitness\"], \"perTag\":2}')"
+    ]
+  }
+}
