@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     const run = await client.actor("clockworks/tiktok-scraper").call({
       hashtags,
       resultsPerPage: perTagNum,
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
+      shouldDownloadVideos: true,
+      shouldDownloadCovers: true,
       shouldDownloadAvatars: false,
       shouldDownloadMusicCovers: false,
       shouldDownloadSlideshowImages: false,
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
     console.log(`[pull] Actor run finished: runId=${run.id}`);
 
     // Get the dataset ID from the run
-    const datasetId = run.datasetId;
+    const datasetId = run.defaultDatasetId;
     if (!datasetId) {
-      throw new Error("No datasetId returned from actor run");
+      throw new Error("No defaultDatasetId returned from actor run");
     }
 
     console.log(`[pull] Fetching dataset items: datasetId=${datasetId}`);
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       "videoMeta.duration",
       "videoMeta.coverUrl",
       "videoMeta.originalCoverUrl",
+      "videoMeta.videoDownloadUrl",
       "authorMeta.name",
       "authorMeta.nickName",
       "authorMeta.fans",
@@ -80,13 +81,28 @@ export async function POST(request: NextRequest) {
     const items = await client
       .dataset(datasetId)
       .listItems({
-        fields: fields.join(","),
         limit: hashtags.length * perTagNum + 5,
       });
 
     console.log(`[pull] Got ${items.items.length} items from dataset`);
 
-    return NextResponse.json({ items: items.items });
+    // Log the first item to see the structure
+    let debugInfo = {};
+    if (items.items.length > 0) {
+      debugInfo = {
+        firstItemKeys: Object.keys(items.items[0]),
+        firstItemSample: {
+          id: items.items[0].id,
+          'videoMeta.coverUrl': items.items[0]['videoMeta.coverUrl'],
+          'videoMeta.videoDownloadUrl': items.items[0]['videoMeta.videoDownloadUrl'],
+          'videoMeta.duration': items.items[0]['videoMeta.duration'],
+          webVideoUrl: items.items[0].webVideoUrl,
+        }
+      };
+      console.log('[pull] First item sample:', JSON.stringify(debugInfo, null, 2));
+    }
+
+    return NextResponse.json({ items: items.items, debug: debugInfo });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : String(error);

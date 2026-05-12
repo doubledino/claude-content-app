@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 
 const STORAGE_KEY = 'pt_trend_dashboard_v1';
-const DEFAULT_HASHTAGS = ['gymtok', 'fittok', 'fitnesstips'];
 const DEFAULT_PER_TAG = 10;
 
 interface TikTokItem {
@@ -20,6 +19,7 @@ interface TikTokItem {
   'videoMeta.duration'?: number;
   'videoMeta.coverUrl'?: string;
   'videoMeta.originalCoverUrl'?: string;
+  'videoMeta.videoDownloadUrl'?: string;
   'authorMeta.name'?: string;
   'authorMeta.nickName'?: string;
   'authorMeta.fans'?: number;
@@ -46,7 +46,11 @@ interface BriefSection {
 }
 
 export default function Page() {
-  const [hashtags, setHashtags] = useState<string[]>(DEFAULT_HASHTAGS);
+  const [activeTab, setActiveTab] = useState<'results' | 'bookmarks'>('results');
+  const [bookmarks, setBookmarks] = useState<TikTokItem[]>([]);
+  const [niche, setNiche] = useState('');
+  const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
+  const [generatingHashtags, setGeneratingHashtags] = useState(false);
   const [perTag, setPerTag] = useState(DEFAULT_PER_TAG);
   const [results, setResults] = useState<TikTokItem[]>([]);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
@@ -66,7 +70,6 @@ export default function Page() {
   const [drawerItem, setDrawerItem] = useState<TikTokItem | null>(null);
   const [drawerContent, setDrawerContent] = useState<string>('');
   const [lastBriefText, setLastBriefText] = useState('');
-  const hashtagInputRef = useRef<HTMLInputElement>(null);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -74,11 +77,19 @@ export default function Page() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.hashtags) setHashtags(parsed.hashtags);
+        if (parsed.niche) setNiche(parsed.niche);
+        if (parsed.generatedHashtags) setGeneratedHashtags(parsed.generatedHashtags);
         if (parsed.perTag) setPerTag(parsed.perTag);
         if (parsed.results) setResults(parsed.results);
         if (parsed.lastRunAt) setLastRunAt(parsed.lastRunAt);
         if (parsed.filters) setFilters(parsed.filters);
+      }
+
+      // Load bookmarks separately
+      const bookmarksRaw = localStorage.getItem('pt_bookmarks_v1');
+      if (bookmarksRaw) {
+        const parsed = JSON.parse(bookmarksRaw);
+        if (parsed.bookmarks) setBookmarks(parsed.bookmarks);
       }
     } catch (e) {
       dbg('warn', 'loadState failed', (e as Error).message);
@@ -90,12 +101,21 @@ export default function Page() {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ hashtags, perTag, results, lastRunAt, filters })
+        JSON.stringify({ niche, generatedHashtags, perTag, results, lastRunAt, filters })
       );
     } catch (e) {
       dbg('warn', 'saveState failed', (e as Error).message);
     }
-  }, [hashtags, perTag, results, lastRunAt, filters]);
+  }, [niche, generatedHashtags, perTag, results, lastRunAt, filters]);
+
+  // Save bookmarks separately
+  useEffect(() => {
+    try {
+      localStorage.setItem('pt_bookmarks_v1', JSON.stringify({ bookmarks }));
+    } catch (e) {
+      dbg('warn', 'saveBookmarks failed', (e as Error).message);
+    }
+  }, [bookmarks]);
 
   function dbg(
     level: 'info' | 'success' | 'warn' | 'error',
@@ -106,6 +126,48 @@ export default function Page() {
     const entry: DebugEntry = { ts, level, msg, payload };
     setDebugEntries((prev) => [...prev, entry]);
     console.log(`[${level}]`, msg, payload || '');
+  }
+
+  function isBookmarked(id: string): boolean {
+    return bookmarks.some(b => b.id === id);
+  }
+
+  function toggleBookmark(item: TikTokItem) {
+    setBookmarks(prev =>
+      isBookmarked(item.id) ? prev.filter(b => b.id !== item.id) : [...prev, item]
+    );
+  }
+
+  async function generateHashtags() {
+    if (!niche.trim()) {
+      alert('Enter a niche keyword (e.g. "workout")');
+      return;
+    }
+
+    setGeneratingHashtags(true);
+    dbg('info', '🔄 Generating hashtags for niche: ' + niche);
+
+    try {
+      const res = await fetch('/api/hashtags/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ niche: niche.trim() }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      const { hashtags } = await res.json();
+      setGeneratedHashtags(hashtags);
+      dbg('success', '✅ Generated ' + hashtags.length + ' hashtags: ' + hashtags.join(', '));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      dbg('error', '❌ Failed to generate hashtags: ' + msg);
+    } finally {
+      setGeneratingHashtags(false);
+    }
   }
 
   function score(item: TikTokItem): number {
@@ -245,8 +307,9 @@ export default function Page() {
         startSection(headerHit.key, headerHit.title, sub, inline);
         continue;
       }
-      if (current) {
-        current.lines.push(line);
+      if (current !== null) {
+        const section: BriefSection = current;
+        section.lines.push(line);
       } else if (line.trim()) {
         startSection('preamble', 'Notes', '', line);
       }
@@ -381,8 +444,8 @@ export default function Page() {
 
   async function runPull() {
     if (loading) return;
-    if (!hashtags.length) {
-      alert('Add at least one hashtag.');
+    if (!generatedHashtags.length) {
+      alert('Generate hashtags first!');
       return;
     }
     setLoading(true);
@@ -392,7 +455,7 @@ export default function Page() {
     setDebugOpen(true);
     dbg(
       'info',
-      '▶ Run started — hashtags: ' + hashtags.join(', ') + ', perTag: ' + perTag
+      '▶ Run started — hashtags: ' + generatedHashtags.join(', ') + ', perTag: ' + perTag
     );
 
     try {
@@ -402,7 +465,7 @@ export default function Page() {
       const pullRes = await fetch('/api/runs/pull', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hashtags, perTag }),
+        body: JSON.stringify({ hashtags: generatedHashtags, perTag }),
       });
 
       if (!pullRes.ok) {
@@ -410,8 +473,13 @@ export default function Page() {
         throw new Error(errData.error || `HTTP ${pullRes.status}`);
       }
 
-      const { items } = await pullRes.json();
+      const data = await pullRes.json();
+      const { items, debug } = data;
       dbg('success', 'Got ' + items.length + ' items from Apify');
+      if (debug) {
+        dbg('info', 'Debug info:', debug);
+        console.log('[DEBUG] First item structure:', debug);
+      }
 
       // Score and format locally
       const scoredItems = items.map((it: TikTokItem) => ({
@@ -465,33 +533,33 @@ export default function Page() {
     }
   }
 
-  function renderCard(item: TikTokItem) {
+  function renderCard(item: TikTokItem, index?: number) {
     const fmt = item._format || 'tip';
     const fmtClass = 'format-' + fmt;
-    const cover = item['videoMeta.coverUrl'] || item['videoMeta.originalCoverUrl'] || '';
-    const author = item['authorMeta.name'] || 'unknown';
+    const author = item['authorMeta.name'];
     const fans = item['authorMeta.fans'] || 0;
     const verified = item['authorMeta.verified'];
     const musicName = item['musicMeta.musicName'] || '';
     const isOrig = item['musicMeta.musicOriginal'] === true;
     const dur = item['videoMeta.duration'] || 0;
+    const key = index !== undefined ? `${item.id}-${index}` : item.id;
 
     return (
-      <div key={item.id} className="card">
-        <div className="thumb">
-          {cover ? (
-            <img
-              src={cover}
-              alt="thumbnail"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          ) : null}
-          <span className={'format-badge ' + fmtClass}>{fmt}</span>
-          <span className="score-badge">{(item._score || 0)} pts</span>
-          <span className="duration-badge">{fmtTime(dur)}</span>
+      <div key={key} className="card">
+        <div className="card-header">
+          <div className="card-badges">
+            <span className={'format-badge ' + fmtClass}>{fmt}</span>
+            <span className="score-badge">{(item._score || 0)} pts</span>
+            {dur > 0 && <span className="duration-badge">{fmtTime(dur)}</span>}
+            <button
+              className={`bookmark-btn ${isBookmarked(item.id) ? 'bookmarked' : ''}`}
+              onClick={() => toggleBookmark(item)}
+              title={isBookmarked(item.id) ? 'Remove bookmark' : 'Add bookmark'}
+              style={{ marginLeft: 'auto' }}
+            >
+              {isBookmarked(item.id) ? '★' : '☆'}
+            </button>
+          </div>
         </div>
         <div className="card-body">
           <div className="metrics">
@@ -513,13 +581,15 @@ export default function Page() {
             </div>
           </div>
           <div className="caption">{(item.text || '').slice(0, 180)}</div>
-          <div className="author-row">
-            <span className="author">
-              @<strong>{author}</strong>
-              {verified ? ' ✓' : ''}
-            </span>
-            <span className="followers">{fmtNum(fans)} fans</span>
-          </div>
+          {author && (
+            <div className="author-row">
+              <span className="author">
+                @<strong>{author}</strong>
+                {verified ? ' ✓' : ''}
+              </span>
+              <span className="followers">{fmtNum(fans)} fans</span>
+            </div>
+          )}
           {musicName && (
             <div className="audio-row">
               <span className={'audio-tag ' + (isOrig ? 'audio-orig' : 'audio-trend')}>
@@ -593,12 +663,22 @@ export default function Page() {
           display: flex; align-items: center; justify-content: space-between;
           padding: 18px 20px; border-bottom: 1px solid var(--border);
           background: var(--surface);
+          gap: 20px;
+          flex-wrap: wrap;
+          min-height: 70px;
         }
-        .brand { display: flex; align-items: baseline; gap: 12px; }
+        .brand { display: flex; align-items: baseline; gap: 12px; flex: 1; min-width: 300px; }
         .brand h1 { font-size: 18px; color: var(--text); }
         .brand .sub { font-size: 12px; color: var(--text-3); }
-        .last-run { font-size: 12px; color: var(--text-2); }
+        .last-run { font-size: 12px; color: var(--text-2); white-space: nowrap; }
         .last-run .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--good); margin-right: 6px; vertical-align: middle; }
+
+        .tabbar { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .tab { padding: 12px 16px; border: none; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+        .tab-count { margin-left: 6px; background: var(--surface-2); color: var(--text-3); padding: 1px 6px; border-radius: 999px; font-size: 11px; }
+        .tab.active .tab-count { background: var(--accent-soft); color: var(--accent); }
 
         .controls {
           display: grid; grid-template-columns: 1fr auto; gap: 16px;
@@ -677,21 +757,17 @@ export default function Page() {
           display: flex; flex-direction: column;
         }
         .card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-        .thumb { position: relative; aspect-ratio: 9/16; background: var(--surface-2); overflow: hidden; }
-        .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .thumb .score-badge {
-          position: absolute; top: 8px; right: 8px;
+        .card-header { padding: 12px; border-bottom: 1px solid var(--border); }
+        .card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+        .score-badge {
           background: rgba(17,24,39,0.85); color: #fff; padding: 4px 10px;
           border-radius: 999px; font-size: 11px; font-weight: 700;
-          backdrop-filter: blur(8px);
         }
-        .thumb .duration-badge {
-          position: absolute; bottom: 8px; right: 8px;
-          background: rgba(17,24,39,0.7); color: #fff; padding: 2px 6px;
+        .duration-badge {
+          background: rgba(17,24,39,0.7); color: #fff; padding: 4px 8px;
           border-radius: 4px; font-size: 11px;
         }
-        .thumb .format-badge {
-          position: absolute; top: 8px; left: 8px;
+        .format-badge {
           padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700;
           text-transform: uppercase; letter-spacing: 0.04em;
           background: rgba(255,255,255,0.95); color: var(--text);
@@ -699,6 +775,10 @@ export default function Page() {
         .format-tip { background: var(--good-soft) !important; color: #14532d !important; }
         .format-pov { background: var(--warn-soft) !important; color: #78350f !important; }
         .format-demo { background: var(--accent-soft) !important; color: var(--accent) !important; }
+
+        .bookmark-btn { border: none; background: none; font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; color: var(--text-3); transition: color 0.15s; }
+        .bookmark-btn:hover { color: var(--warn); }
+        .bookmark-btn.bookmarked { color: var(--warn); }
 
         .card-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
@@ -897,32 +977,42 @@ export default function Page() {
         </div>
       </div>
 
+      <div className="tabbar">
+        <button className={`tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>
+          Trending <span className="tab-count">{results.length}</span>
+        </button>
+        <button className={`tab ${activeTab === 'bookmarks' ? 'active' : ''}`} onClick={() => setActiveTab('bookmarks')}>
+          Bookmarks <span className="tab-count">{bookmarks.length}</span>
+        </button>
+      </div>
+
+      {activeTab === 'results' && (
+      <>
       <div className="controls">
         <div className="control-group">
-          <label>Hashtags to scrape</label>
-          <div className="hashtag-input">
-            {hashtags.map((tag, i) => (
-              <span key={i} className="chip">
-                #{tag}
-                <button onClick={() => setHashtags(hashtags.filter((_, j) => j !== i))}>×</button>
-              </span>
-            ))}
+          <label>Content niche</label>
+          <div className="control-row">
             <input
-              ref={hashtagInputRef}
               type="text"
-              placeholder="add hashtag + Enter"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault();
-                  const v = (e.target as HTMLInputElement).value.trim().replace(/^#/, '');
-                  if (v && !hashtags.includes(v)) {
-                    setHashtags([...hashtags, v]);
-                  }
-                  (e.target as HTMLInputElement).value = '';
-                }
-              }}
+              placeholder="e.g. workout, cooking, fashion"
+              value={niche}
+              onChange={(e) => setNiche(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && generateHashtags()}
+              style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', font: 'inherit' }}
             />
+            <button className="run-btn" onClick={generateHashtags} disabled={generatingHashtags || !niche.trim()}>
+              <span>{generatingHashtags ? 'Generating…' : 'Generate'}</span>
+            </button>
           </div>
+          {generatedHashtags.length > 0 && (
+            <div className="hashtag-input" style={{ marginTop: '8px' }}>
+              {generatedHashtags.map((tag, i) => (
+                <span key={i} className="chip" style={{ pointerEvents: 'none' }}>
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="control-group">
           <label>&nbsp;</label>
@@ -938,7 +1028,7 @@ export default function Page() {
                 onChange={(e) => setPerTag(parseInt(e.target.value) || 10)}
               />
             </div>
-            <button className="run-btn" onClick={runPull} disabled={loading}>
+            <button className="run-btn" onClick={runPull} disabled={loading || !generatedHashtags.length}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8 5v14l11-7z" />
               </svg>
@@ -1005,8 +1095,12 @@ export default function Page() {
           </select>
         </span>
       </div>
+      </>
+      )}
 
       <main>
+        {activeTab === 'results' ? (
+          <>
         {loading ? (
           <div className="loading">
             <div className="spinner"></div>
@@ -1037,7 +1131,7 @@ export default function Page() {
                   <h2>🏆 This week's top 3 picks</h2>
                   <span className="count">scored across all results</span>
                 </div>
-                <div className="shortlist">{top3.map((item) => renderCard(item))}</div>
+                <div className="shortlist">{top3.map((item, i) => renderCard(item, i))}</div>
               </>
             )}
             <div className="section-title">
@@ -1051,7 +1145,7 @@ export default function Page() {
                 <p>No results match your filters.</p>
               </div>
             ) : (
-              <div className="grid">{filtered.map((item) => renderCard(item))}</div>
+              <div className="grid">{filtered.map((item, i) => renderCard(item, i))}</div>
             )}
             {results.length > 0 && (
               <div className="status-bar">
@@ -1080,10 +1174,29 @@ export default function Page() {
                   </span>
                 </div>
                 <div className="stat">
-                  <span className="l">Hashtags:</span>
-                  <span className="v">{hashtags.map((t) => '#' + t).join(', ')}</span>
+                  <span className="l">Niche:</span>
+                  <span className="v">{niche}</span>
                 </div>
               </div>
+            )}
+          </>
+        )}
+          </>
+        ) : (
+          <>
+            {bookmarks.length === 0 ? (
+              <div className="empty">
+                <h3>No bookmarks yet</h3>
+                <p>Save videos from the Trending tab by clicking the ☆ star.</p>
+              </div>
+            ) : (
+              <>
+                <div className="section-title">
+                  <h2>Saved videos</h2>
+                  <span className="count">{bookmarks.length} total</span>
+                </div>
+                <div className="grid">{bookmarks.map((item, i) => renderCard(item, i))}</div>
+              </>
             )}
           </>
         )}

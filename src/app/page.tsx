@@ -245,8 +245,9 @@ export default function Page() {
         startSection(headerHit.key, headerHit.title, sub, inline);
         continue;
       }
-      if (current) {
-        current.lines.push(line);
+      if (current !== null) {
+        const section: BriefSection = current;
+        section.lines.push(line);
       } else if (line.trim()) {
         startSection('preamble', 'Notes', '', line);
       }

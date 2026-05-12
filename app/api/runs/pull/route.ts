@@ -44,15 +44,11 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[pull] Actor run finished: runId=${run.id}`);
-    console.log(`[pull] Run object keys:`, Object.keys(run));
-    console.log(`[pull] Run datasetId:`, run.datasetId);
-    console.log(`[pull] Run defaultDatasetId:`, run.defaultDatasetId);
 
     // Get the dataset ID from the run
-    const datasetId = run.datasetId || run.defaultDatasetId;
+    const datasetId = run.defaultDatasetId;
     if (!datasetId) {
-      console.log("[pull] Full run object:", JSON.stringify(run, null, 2));
-      throw new Error("No datasetId returned from actor run");
+      throw new Error("No defaultDatasetId returned from actor run");
     }
 
     console.log(`[pull] Fetching dataset items: datasetId=${datasetId}`);
