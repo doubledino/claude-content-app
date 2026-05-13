@@ -630,6 +630,8 @@ export default function Page() {
 
   const filtered = applyFilters(results);
   const top3 = results.slice().sort((a, b) => (b._score || 0) - (a._score || 0)).slice(0, 3);
+  const top3Ids = new Set(top3.map(item => item.id));
+  const filteredExcludingTop3 = filtered.filter(item => !top3Ids.has(item.id));
 
   return (
     <>
@@ -1196,15 +1198,15 @@ export default function Page() {
             <div className="section-title">
               <h2>All results</h2>
               <span className="count">
-                {filtered.length} of {results.length} after filters
+                {filteredExcludingTop3.length} of {results.length - top3.length} after filters
               </span>
             </div>
-            {filtered.length === 0 ? (
+            {filteredExcludingTop3.length === 0 ? (
               <div className="empty">
                 <p>No results match your filters.</p>
               </div>
             ) : (
-              <div className="grid">{filtered.map((item, i) => renderCard(item, i))}</div>
+              <div className="grid">{filteredExcludingTop3.map((item, i) => renderCard(item, i))}</div>
             )}
             {results.length > 0 && (
               <div className="status-bar">
