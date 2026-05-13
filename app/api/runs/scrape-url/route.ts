@@ -59,13 +59,14 @@ export async function POST(request: NextRequest) {
 
     // Look for download URL in various possible field names
     const downloadUrl =
+      (videoData as any)["submittedVideoUrl"] ||
+      (videoData as any)["mediaUrls"]?.[0] ||
       (videoData as any)["videoDownloadUrl"] ||
       (videoData as any)["downloadUrl"] ||
       (videoData as any)["videoUrl"] ||
       (videoData as any)["video"] ||
       (videoData as any)["videoMeta"]?.["videoDownloadUrl"] ||
-      (videoData as any)["videoMeta"]?.["downloadUrl"] ||
-      (videoData as any)["mediaUrls"]?.[0];
+      (videoData as any)["videoMeta"]?.["downloadUrl"];
 
     console.log(
       `[scrape-url] Download URL found:`,
