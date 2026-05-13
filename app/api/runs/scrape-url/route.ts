@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     // Run the TikTok downloader without watermark
     const run = await client.actor("wilcode/fast-tiktok-downloader-without-watermark").call({
       url: videoUrl,
+      apiVersion: "v1",
     });
 
     console.log(`[scrape-url] Actor run finished: runId=${run.id}`);
@@ -57,14 +58,15 @@ export async function POST(request: NextRequest) {
     console.log(`[scrape-url] Video data keys:`, allKeys);
     console.log(`[scrape-url] Full video data:`, JSON.stringify(videoData, null, 2));
 
-    // Look for download URL - this downloader should return it directly
+    // Look for download URL - wilcode returns video download URLs
     const downloadUrl =
       (videoData as any)["downloadUrl"] ||
       (videoData as any)["download_url"] ||
+      (videoData as any)["videoDownloadUrl"] ||
+      (videoData as any)["video_download_url"] ||
+      (videoData as any)["video"] ||
       (videoData as any)["url"] ||
-      (videoData as any)["videoUrl"] ||
-      (videoData as any)["video_url"] ||
-      (videoData as any)["link"] ||
+      (videoData as any)["downloadLink"] ||
       (videoData as any)["download_link"];
 
     console.log(
