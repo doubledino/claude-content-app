@@ -483,8 +483,19 @@ export default function Page() {
         console.log('[DEBUG] First item structure:', debug);
       }
 
+      // Remove duplicates based on video ID
+      const seenIds = new Set<string>();
+      const uniqueItems = items.filter((it: TikTokItem) => {
+        if (seenIds.has(it.id)) {
+          return false;
+        }
+        seenIds.add(it.id);
+        return true;
+      });
+      dbg('info', 'Removed ' + (items.length - uniqueItems.length) + ' duplicates');
+
       // Score and format locally
-      const scoredItems = items.map((it: TikTokItem) => ({
+      const scoredItems = uniqueItems.map((it: TikTokItem) => ({
         ...it,
         _score: score(it),
         _format: guessFormat(it),
