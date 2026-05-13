@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     const run = await client.actor("clockworks/tiktok-scraper").call({
       hashtags,
       resultsPerPage: perTagNum,
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
+      shouldDownloadVideos: true,
+      shouldDownloadCovers: true,
       shouldDownloadAvatars: false,
       shouldDownloadMusicCovers: false,
       shouldDownloadSlideshowImages: false,
@@ -86,6 +86,19 @@ export async function POST(request: NextRequest) {
       });
 
     console.log(`[pull] Got ${items.items.length} items from dataset`);
+
+    // Debug: Log first item structure and videoMeta.videoDownloadUrl
+    if (items.items.length > 0) {
+      const firstItem = items.items[0];
+      console.log('[pull] First item keys:', Object.keys(firstItem));
+      console.log('[pull] First item videoMeta:', (firstItem as any)['videoMeta']);
+      console.log('[pull] First item videoMeta.videoDownloadUrl:', (firstItem as any)['videoMeta.videoDownloadUrl']);
+      console.log('[pull] Sample of first item:', JSON.stringify({
+        id: (firstItem as any).id,
+        'videoMeta.videoDownloadUrl': (firstItem as any)['videoMeta.videoDownloadUrl'],
+        'videoMeta.duration': (firstItem as any)['videoMeta.duration'],
+      }, null, 2));
+    }
 
     return NextResponse.json({ items: items.items });
   } catch (error) {
