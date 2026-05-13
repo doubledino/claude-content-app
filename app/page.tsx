@@ -141,26 +141,41 @@ export default function Page() {
   }
 
   async function downloadVideo(item: TikTokItem) {
-    const videoUrl = item['videoMeta.videoDownloadUrl'];
-    dbg('info', 'Attempting download for: ' + item.id);
-    dbg('info', 'Video URL found: ' + (videoUrl ? 'YES' : 'NO'));
-    if (videoUrl) {
-      dbg('info', 'URL: ' + videoUrl.substring(0, 80) + '...');
-    } else {
-      dbg('warn', 'Available keys: ' + Object.keys(item).filter(k => k.includes('video')).join(', '));
-    }
-
-    if (!videoUrl) {
-      dbg('error', 'Download URL not available for video: ' + item.id);
-      alert('Download URL not available for this video');
+    const webUrl = item.webVideoUrl;
+    if (!webUrl) {
+      dbg('error', 'No web URL available for video: ' + item.id);
+      alert('Cannot download: video URL not available');
       return;
     }
 
+    dbg('info', '⬇️ Starting download for: ' + item.id);
+    dbg('info', '🔍 Scraping video URL: ' + webUrl.substring(0, 60) + '...');
+
     try {
-      dbg('info', 'Downloading video: ' + item.id);
-      const response = await fetch(videoUrl);
+      // Call the URL-based scraper to get the download URL
+      const scrapeRes = await fetch('/api/runs/scrape-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: webUrl }),
+      });
+
+      if (!scrapeRes.ok) {
+        const errData = await scrapeRes.json();
+        throw new Error(errData.error || `HTTP ${scrapeRes.status}`);
+      }
+
+      const { downloadUrl } = await scrapeRes.json();
+      dbg('info', '✓ Got video data from scraper');
+
+      if (!downloadUrl) {
+        dbg('error', 'No download URL in scraper response');
+        throw new Error('Scraper did not return a download URL');
+      }
+
+      dbg('info', '📥 Fetching video file...');
+      const response = await fetch(downloadUrl);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status} when fetching video`);
       }
 
       const blob = await response.blob();
@@ -172,7 +187,7 @@ export default function Page() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      dbg('success', '✅ Video downloaded');
+      dbg('success', '✅ Video downloaded successfully');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       dbg('error', '❌ Download failed: ' + msg);
