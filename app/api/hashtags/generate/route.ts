@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { niche } = await request.json();
+    const { niche, count } = await request.json();
 
     if (!niche || typeof niche !== "string") {
       return NextResponse.json(
@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const numHashtags = Math.max(5, Math.min(50, count ? parseInt(count) : 20));
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -22,7 +24,12 @@ export async function POST(request: NextRequest) {
 
     const client = new Anthropic({ apiKey });
 
-    const prompt = `Generate exactly 20 TikTok hashtags for the '${niche}' niche. Mix 3 mega (>1B posts), 7 mid-size, 10 niche/specific. Return ONLY a JSON array of strings without the # symbol, no explanation.
+    // Calculate distribution: ~15% mega, ~35% mid-size, ~50% niche
+    const numMega = Math.max(1, Math.floor(numHashtags * 0.15));
+    const numMid = Math.max(1, Math.floor(numHashtags * 0.35));
+    const numNiche = numHashtags - numMega - numMid;
+
+    const prompt = `Generate exactly ${numHashtags} TikTok hashtags for the '${niche}' niche. Mix ${numMega} mega (>1B posts), ${numMid} mid-size, ${numNiche} niche/specific. Return ONLY a JSON array of strings without the # symbol, no explanation.
 
 Example format: ["fitness", "fitnessmotivation", "personaltraining", ...]`;
 

@@ -51,6 +51,7 @@ export default function Page() {
   const [niche, setNiche] = useState('');
   const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
   const [generatingHashtags, setGeneratingHashtags] = useState(false);
+  const [numHashtags, setNumHashtags] = useState(20);
   const [newHashtagInput, setNewHashtagInput] = useState('');
   const [perTag, setPerTag] = useState(DEFAULT_PER_TAG);
   const [results, setResults] = useState<TikTokItem[]>([]);
@@ -152,7 +153,7 @@ export default function Page() {
       const res = await fetch('/api/hashtags/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche: niche.trim() }),
+        body: JSON.stringify({ niche: niche.trim(), count: numHashtags }),
       });
 
       if (!res.ok) {
@@ -1008,6 +1009,18 @@ export default function Page() {
             <button className="run-btn" onClick={generateHashtags} disabled={generatingHashtags || !niche.trim()}>
               <span>{generatingHashtags ? 'Generating…' : 'Generate'}</span>
             </button>
+          </div>
+          <div className="control-row" style={{ marginTop: '6px', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-2)' }}>Generate</label>
+            <input
+              type="number"
+              min="5"
+              max="50"
+              value={numHashtags}
+              onChange={(e) => setNumHashtags(Math.max(5, Math.min(50, parseInt(e.target.value) || 20)))}
+              style={{ width: '50px', padding: '4px 6px', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', font: 'inherit', textAlign: 'center' }}
+            />
+            <label style={{ fontSize: '12px', color: 'var(--text-2)' }}>hashtags</label>
           </div>
           {generatedHashtags.length > 0 && (
             <div className="hashtag-input" style={{ marginTop: '8px' }}>
