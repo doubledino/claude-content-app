@@ -51,6 +51,7 @@ export default function Page() {
   const [niche, setNiche] = useState('');
   const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
   const [generatingHashtags, setGeneratingHashtags] = useState(false);
+  const [newHashtagInput, setNewHashtagInput] = useState('');
   const [perTag, setPerTag] = useState(DEFAULT_PER_TAG);
   const [results, setResults] = useState<TikTokItem[]>([]);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
@@ -1007,10 +1008,40 @@ export default function Page() {
           {generatedHashtags.length > 0 && (
             <div className="hashtag-input" style={{ marginTop: '8px' }}>
               {generatedHashtags.map((tag, i) => (
-                <span key={i} className="chip" style={{ pointerEvents: 'none' }}>
-                  #{tag}
+                <span key={i} className="chip" style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '4px' }}>
+                  <input
+                    type="text"
+                    value={tag}
+                    onChange={(e) => {
+                      const updated = [...generatedHashtags];
+                      updated[i] = e.target.value;
+                      setGeneratedHashtags(updated);
+                    }}
+                    style={{ border: 'none', background: 'none', font: 'inherit', width: 'auto', flex: 1, padding: 0, color: 'inherit' }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={() => setGeneratedHashtags(generatedHashtags.filter((_, idx) => idx !== i))}
+                    style={{ border: 'none', background: 'none', padding: '0 2px', cursor: 'pointer', color: 'inherit', fontSize: '14px', lineHeight: 1 }}
+                    title="Remove hashtag"
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
+              <input
+                type="text"
+                value={newHashtagInput}
+                onChange={(e) => setNewHashtagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newHashtagInput.trim()) {
+                    setGeneratedHashtags([...generatedHashtags, newHashtagInput.trim()]);
+                    setNewHashtagInput('');
+                  }
+                }}
+                placeholder="add more..."
+                style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', font: 'inherit', flex: 1 }}
+              />
             </div>
           )}
         </div>
