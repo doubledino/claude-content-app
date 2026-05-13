@@ -140,6 +140,37 @@ export default function Page() {
     );
   }
 
+  async function downloadVideo(item: TikTokItem) {
+    const videoUrl = item['videoMeta.videoDownloadUrl'];
+    if (!videoUrl) {
+      alert('Download URL not available for this video');
+      return;
+    }
+
+    try {
+      dbg('info', 'Downloading video: ' + item.id);
+      const response = await fetch(videoUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tiktok-${item.id}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      dbg('success', '✅ Video downloaded');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      dbg('error', '❌ Download failed: ' + msg);
+      alert('Failed to download video: ' + msg);
+    }
+  }
+
   async function generateHashtags() {
     if (!niche.trim()) {
       alert('Enter a niche keyword (e.g. "workout")');
@@ -621,6 +652,13 @@ export default function Page() {
             </a>
             <button className="primary" onClick={() => generateBrief(item)}>
               Brief →
+            </button>
+            <button
+              className="primary"
+              onClick={() => downloadVideo(item)}
+              title="Download video to your computer"
+            >
+              ↓ Download
             </button>
           </div>
         </div>
