@@ -697,6 +697,10 @@ export default function Page() {
           border: 0; outline: 0; flex: 1; min-width: 80px; padding: 4px;
           font: inherit; background: transparent;
         }
+        .hashtag-input input::placeholder {
+          color: var(--text-3);
+          opacity: 0.5;
+        }
         .chip {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 3px 8px; background: var(--accent-soft); color: var(--accent);
@@ -1039,8 +1043,8 @@ export default function Page() {
                     setNewHashtagInput('');
                   }
                 }}
-                placeholder="add more..."
-                style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', font: 'inherit', flex: 1 }}
+                placeholder="add hashtag"
+                style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', font: 'inherit', width: '140px', minWidth: '140px' }}
               />
             </div>
           )}
