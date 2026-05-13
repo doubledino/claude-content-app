@@ -142,7 +142,16 @@ export default function Page() {
 
   async function downloadVideo(item: TikTokItem) {
     const videoUrl = item['videoMeta.videoDownloadUrl'];
+    dbg('info', 'Attempting download for: ' + item.id);
+    dbg('info', 'Video URL found: ' + (videoUrl ? 'YES' : 'NO'));
+    if (videoUrl) {
+      dbg('info', 'URL: ' + videoUrl.substring(0, 80) + '...');
+    } else {
+      dbg('warn', 'Available keys: ' + Object.keys(item).filter(k => k.includes('video')).join(', '));
+    }
+
     if (!videoUrl) {
+      dbg('error', 'Download URL not available for video: ' + item.id);
       alert('Download URL not available for this video');
       return;
     }
@@ -507,11 +516,16 @@ export default function Page() {
       }
 
       const data = await pullRes.json();
-      const { items, debug } = data;
+      const { items, debug, debugInfo } = data;
       dbg('success', 'Got ' + items.length + ' items from Apify');
       if (debug) {
         dbg('info', 'Debug info:', debug);
         console.log('[DEBUG] First item structure:', debug);
+      }
+      if (debugInfo) {
+        dbg('info', '📋 Available fields: ' + debugInfo.allFields.join(', '));
+        dbg('info', '🎥 Download URL sample: ' + (debugInfo.firstItemSample['videoMeta.videoDownloadUrl'] || 'NOT FOUND'));
+        console.log('[DEBUG] Full debug info:', debugInfo);
       }
 
       // Remove duplicates based on video ID

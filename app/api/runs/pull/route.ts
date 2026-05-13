@@ -87,20 +87,26 @@ export async function POST(request: NextRequest) {
 
     console.log(`[pull] Got ${items.items.length} items from dataset`);
 
-    // Debug: Log first item structure and videoMeta.videoDownloadUrl
+    // Debug: Log first item structure and all video-related fields
+    let debugInfo = { allFields: [] as string[], firstItemSample: {} as any };
     if (items.items.length > 0) {
       const firstItem = items.items[0];
-      console.log('[pull] First item keys:', Object.keys(firstItem));
-      console.log('[pull] First item videoMeta:', (firstItem as any)['videoMeta']);
-      console.log('[pull] First item videoMeta.videoDownloadUrl:', (firstItem as any)['videoMeta.videoDownloadUrl']);
-      console.log('[pull] Sample of first item:', JSON.stringify({
+      debugInfo.allFields = Object.keys(firstItem);
+
+      // Check all possible video URL fields
+      debugInfo.firstItemSample = {
         id: (firstItem as any).id,
+        'webVideoUrl': (firstItem as any)['webVideoUrl'],
         'videoMeta.videoDownloadUrl': (firstItem as any)['videoMeta.videoDownloadUrl'],
         'videoMeta.duration': (firstItem as any)['videoMeta.duration'],
-      }, null, 2));
+        'videoMeta.coverUrl': (firstItem as any)['videoMeta.coverUrl'],
+      };
+
+      console.log('[pull] All fields in first item:', debugInfo.allFields);
+      console.log('[pull] First item sample:', JSON.stringify(debugInfo.firstItemSample, null, 2));
     }
 
-    return NextResponse.json({ items: items.items });
+    return NextResponse.json({ items: items.items, debugInfo });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : String(error);
