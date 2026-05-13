@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
     }
 
     const videoData = items.items[0];
-    console.log(`[scrape-url] Video data keys:`, Object.keys(videoData));
+    const allKeys = Object.keys(videoData);
+    console.log(`[scrape-url] Video data keys:`, allKeys);
+    console.log(`[scrape-url] Full video data:`, JSON.stringify(videoData, null, 2));
 
     // Look for download URL in various possible field names
     const downloadUrl =
@@ -62,7 +64,8 @@ export async function POST(request: NextRequest) {
       (videoData as any)["videoUrl"] ||
       (videoData as any)["video"] ||
       (videoData as any)["videoMeta"]?.["videoDownloadUrl"] ||
-      (videoData as any)["videoMeta"]?.["downloadUrl"];
+      (videoData as any)["videoMeta"]?.["downloadUrl"] ||
+      (videoData as any)["mediaUrls"]?.[0];
 
     console.log(
       `[scrape-url] Download URL found:`,
@@ -70,9 +73,12 @@ export async function POST(request: NextRequest) {
     );
     if (downloadUrl) {
       console.log(`[scrape-url] URL: ${downloadUrl.substring(0, 100)}...`);
+    } else {
+      console.log(`[scrape-url] Checked fields - videoMeta keys:`, Object.keys((videoData as any)["videoMeta"] || {}));
+      console.log(`[scrape-url] mediaUrls:`, (videoData as any)["mediaUrls"]);
     }
 
-    return NextResponse.json({ videoData, downloadUrl });
+    return NextResponse.json({ videoData, downloadUrl, allKeys });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : String(error);

@@ -164,11 +164,18 @@ export default function Page() {
         throw new Error(errData.error || `HTTP ${scrapeRes.status}`);
       }
 
-      const { downloadUrl } = await scrapeRes.json();
+      const scrapeData = await scrapeRes.json();
+      const { downloadUrl, allKeys } = scrapeData;
       dbg('info', '✓ Got video data from scraper');
+
+      if (allKeys) {
+        dbg('info', '📋 Scraper returned fields: ' + allKeys.join(', '));
+      }
 
       if (!downloadUrl) {
         dbg('error', 'No download URL in scraper response');
+        dbg('info', 'Check browser console (F12) for full video data');
+        console.log('[download] Full scraper response:', scrapeData);
         throw new Error('Scraper did not return a download URL');
       }
 
