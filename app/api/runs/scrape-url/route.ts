@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
 
     const client = new ApifyClient({ token: apiToken });
 
-    console.log(`[scrape-url] Scraping video URL: ${videoUrl}`);
+    console.log(`[scrape-url] Downloading video: ${videoUrl}`);
 
-    // Run the URL-based video scraper
-    const run = await client.actor("clockworks/tiktok-video-scraper").call({
-      urls: [videoUrl],
+    // Run the TikTok downloader without watermark
+    const run = await client.actor("wilcode/fast-tiktok-downloader-without-watermark").call({
+      url: videoUrl,
     });
 
     console.log(`[scrape-url] Actor run finished: runId=${run.id}`);
@@ -57,16 +57,15 @@ export async function POST(request: NextRequest) {
     console.log(`[scrape-url] Video data keys:`, allKeys);
     console.log(`[scrape-url] Full video data:`, JSON.stringify(videoData, null, 2));
 
-    // Look for download URL in various possible field names
+    // Look for download URL - this downloader should return it directly
     const downloadUrl =
-      (videoData as any)["submittedVideoUrl"] ||
-      (videoData as any)["mediaUrls"]?.[0] ||
-      (videoData as any)["videoDownloadUrl"] ||
       (videoData as any)["downloadUrl"] ||
+      (videoData as any)["download_url"] ||
+      (videoData as any)["url"] ||
       (videoData as any)["videoUrl"] ||
-      (videoData as any)["video"] ||
-      (videoData as any)["videoMeta"]?.["videoDownloadUrl"] ||
-      (videoData as any)["videoMeta"]?.["downloadUrl"];
+      (videoData as any)["video_url"] ||
+      (videoData as any)["link"] ||
+      (videoData as any)["download_link"];
 
     console.log(
       `[scrape-url] Download URL found:`,
@@ -74,9 +73,6 @@ export async function POST(request: NextRequest) {
     );
     if (downloadUrl) {
       console.log(`[scrape-url] URL: ${downloadUrl.substring(0, 100)}...`);
-    } else {
-      console.log(`[scrape-url] Checked fields - videoMeta keys:`, Object.keys((videoData as any)["videoMeta"] || {}));
-      console.log(`[scrape-url] mediaUrls:`, (videoData as any)["mediaUrls"]);
     }
 
     return NextResponse.json({ videoData, downloadUrl, allKeys });
