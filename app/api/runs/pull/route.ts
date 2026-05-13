@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       "videoMeta.duration",
       "videoMeta.coverUrl",
       "videoMeta.originalCoverUrl",
+      "videoMeta.videoDownloadUrl",
       "authorMeta.name",
       "authorMeta.nickName",
       "authorMeta.fans",
