@@ -53,57 +53,24 @@ export async function POST(request: NextRequest) {
 
     console.log(`[pull] Fetching dataset items: datasetId=${datasetId}`);
 
-    // Fetch dataset items with specific fields
-    const fields = [
-      "id",
-      "webVideoUrl",
-      "text",
-      "hashtags",
-      "createTimeISO",
-      "playCount",
-      "diggCount",
-      "shareCount",
-      "commentCount",
-      "collectCount",
-      "videoMeta.duration",
-      "videoMeta.coverUrl",
-      "videoMeta.originalCoverUrl",
-      "videoMeta.videoDownloadUrl",
-      "authorMeta.name",
-      "authorMeta.nickName",
-      "authorMeta.fans",
-      "authorMeta.verified",
-      "musicMeta.musicName",
-      "musicMeta.musicAuthor",
-      "musicMeta.musicOriginal",
-    ];
-
+    // Fetch dataset items - don't filter fields, get everything Apify returns
     const items = await client
       .dataset(datasetId)
       .listItems({
-        fields: fields,
         limit: hashtags.length * perTagNum + 5,
       });
 
     console.log(`[pull] Got ${items.items.length} items from dataset`);
 
-    // Debug: Log first item structure and all video-related fields
-    let debugInfo = { allFields: [] as string[], firstItemSample: {} as any };
+    // Debug: Log first item structure and all fields
+    let debugInfo = { allFields: [] as string[], firstItemFull: {} as any };
     if (items.items.length > 0) {
       const firstItem = items.items[0];
-      debugInfo.allFields = Object.keys(firstItem);
-
-      // Check all possible video URL fields
-      debugInfo.firstItemSample = {
-        id: (firstItem as any).id,
-        'webVideoUrl': (firstItem as any)['webVideoUrl'],
-        'videoMeta.videoDownloadUrl': (firstItem as any)['videoMeta.videoDownloadUrl'],
-        'videoMeta.duration': (firstItem as any)['videoMeta.duration'],
-        'videoMeta.coverUrl': (firstItem as any)['videoMeta.coverUrl'],
-      };
+      debugInfo.allFields = Object.keys(firstItem).sort();
+      debugInfo.firstItemFull = firstItem;
 
       console.log('[pull] All fields in first item:', debugInfo.allFields);
-      console.log('[pull] First item sample:', JSON.stringify(debugInfo.firstItemSample, null, 2));
+      console.log('[pull] Full first item:', JSON.stringify(firstItem, null, 2));
     }
 
     return NextResponse.json({ items: items.items, debugInfo });

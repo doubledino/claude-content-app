@@ -523,9 +523,13 @@ export default function Page() {
         console.log('[DEBUG] First item structure:', debug);
       }
       if (debugInfo) {
-        dbg('info', '📋 Available fields: ' + debugInfo.allFields.join(', '));
-        dbg('info', '🎥 Download URL sample: ' + (debugInfo.firstItemSample['videoMeta.videoDownloadUrl'] || 'NOT FOUND'));
-        console.log('[DEBUG] Full debug info:', debugInfo);
+        dbg('info', '📋 All fields: ' + debugInfo.allFields.join(', '));
+        console.log('[DEBUG] First item full:', debugInfo.firstItemFull);
+        if (debugInfo.firstItemFull) {
+          const keys = Object.keys(debugInfo.firstItemFull);
+          const videoRelated = keys.filter(k => k.toLowerCase().includes('video') || k.toLowerCase().includes('download') || k.toLowerCase().includes('url'));
+          dbg('info', '🎥 Video-related fields: ' + (videoRelated.length > 0 ? videoRelated.join(', ') : 'NONE FOUND'));
+        }
       }
 
       // Remove duplicates based on video ID
